@@ -1,0 +1,456 @@
+{% extends 'mcq/base.html' %}
+
+{% block content %}
+<div class="exam-container">
+  <div class="exam-header">
+    <div class="exam-title-bar">
+      <h1 class="exam-title">{{ test.title }}</h1>
+      <div class="exam-timer" id="exam-timer">
+        <span class="timer-label">Time Remaining:</span>
+        <span class="timer-value" id="timer-value">{{ duration_minutes }}:00</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="exam-layout">
+    <!-- Question Palette (Sidebar) -->
+    <aside class="question-palette">
+      <div class="palette-header">
+        <h3>Questions</h3>
+        <small id="progress">0 / {{ questions|length }}</small>
+      </div>
+      <div class="palette-stats">
+        <div class="stat-item">
+          <span class="stat-label">Attempted</span>
+          <span class="stat-value" id="attempted-count">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Marked</span>
+          <span class="stat-value" id="marked-count">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Unattempted</span>
+          <span class="stat-value" id="unattempted-count">{{ questions|length }}</span>
+        </div>
+      </div>
+      <div class="palette-grid">
+        {% for question in questions %}
+        <button class="palette-btn" data-question-id="{{ question.id }}" onclick="goToQuestion({{ question.id }})">
+          {{ forloop.counter }}
+        </button>
+        {% endfor %}
+      </div>
+    </aside>
+
+    <!-- Main Question Display -->
+    <main class="exam-main">
+      {% for question in questions %}
+      <div class="question-container" id="q-{{ question.id }}" style="display:none;">
+        <div class="question-number">Question {{ forloop.counter }} of {{ questions|length }}</div>
+        <div class="question-text">
+          {{ question.text }}
+          {% if question.image_url %}
+          <div class="question-image">
+            <img src="{{ question.image_url }}" alt="Question diagram" />
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="options-list">
+          {% for option in question.options.all %}
+          <label class="option-label">
+            <input type="radio" name="q-{{ question.id }}" value="{{ option.label }}" class="option-radio" data-question-id="{{ question.id }}" onclick="selectAnswer({{ question.id }}, '{{ option.label }}')">
+            <span class="option-text"><strong>{{ option.label }}.</strong> {{ option.text }}</span>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="question-actions">
+          <button class="btn-action" onclick="markForReview({{ question.id }})">Mark for Review</button>
+          <button class="btn-action" onclick="previousQuestion()">← Previous</button>
+          <button class="btn-action" onclick="nextQuestion()">Next →</button>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="exam-footer">
+        <form id="submit-form" method="post" action="{% url 'submit-exam' attempt.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-submit">Submit Test</button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- Tab Switch Warning -->
+  <div id="tab-switch-warning" class="tab-switch-warning" style="display:none;">
+    ⚠️ Tab switch detected
+  </div>
+</div>
+
+<script>
+const ATTEMPT_ID = {{ attempt.id }};
+const USER_EMAIL = '{{ request.user_email }}';
+let currentQuestionIndex = 0;
+const totalQuestions = {{ questions|length }};
+let timerInterval;
+
+// Timer
+function startTimer() {
+  let remainingSeconds = {{ duration_minutes }} * 60;
+  timerInterval = setInterval(() => {
+    if (remainingSeconds <= 0) {
+      clearInterval(timerInterval);
+      document.getElementById('submit-form').submit();
+      return;
+    }
+    remainingSeconds--;
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    document.getElementById('timer-value').textContent = 
+      `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    if (remainingSeconds <= 300) {
+      document.getElementById('timer-value').style.color = '#f87171';
+    }
+  }, 1000);
+}
+
+// Tab switch detection
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    fetch('{% url "tab-switch" %}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Email': USER_EMAIL,
+      },
+      body: JSON.stringify({ attempt_id: ATTEMPT_ID }),
+    }).then(r => r.json()).then(data => {
+      const warning = document.getElementById('tab-switch-warning');
+      warning.style.display = 'block';
+      setTimeout(() => warning.style.display = 'none', 3000);
+    });
+  }
+});
+
+window.addEventListener('blur', () => {
+  fetch('{% url "tab-switch" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-Email': USER_EMAIL,
+    },
+    body: JSON.stringify({ attempt_id: ATTEMPT_ID }),
+  });
+});
+
+// Disable right-click, copy, paste
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('copy', e => e.preventDefault());
+document.addEventListener('paste', e => e.preventDefault());
+
+// Show first question
+function showQuestion(index) {
+  if (index < 0 || index >= totalQuestions) return;
+  document.querySelectorAll('.question-container').forEach(q => q.style.display = 'none');
+  const questions = document.querySelectorAll('.question-container');
+  if (questions[index]) {
+    questions[index].style.display = 'block';
+  }
+  currentQuestionIndex = index;
+}
+
+function goToQuestion(questionId) {
+  const questions = document.querySelectorAll('.question-container');
+  let index = 0;
+  for (let i = 0; i < questions.length; i++) {
+    if (questions[i].id === `q-${questionId}`) {
+      index = i;
+      break;
+    }
+  }
+  showQuestion(index);
+}
+
+function nextQuestion() {
+  showQuestion(currentQuestionIndex + 1);
+}
+
+function previousQuestion() {
+  showQuestion(currentQuestionIndex - 1);
+}
+
+function selectAnswer(questionId, option) {
+  fetch('{% url "save-answer" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-Email': USER_EMAIL,
+    },
+    body: JSON.stringify({
+      attempt_id: ATTEMPT_ID,
+      question_id: questionId,
+      selected_option: option,
+      marked_for_review: false,
+    }),
+  }).then(r => r.json()).then(data => {
+    updatePaletteStats();
+  });
+}
+
+function markForReview(questionId) {
+  const selected = document.querySelector(`input[name="q-${questionId}"]:checked`);
+  const option = selected ? selected.value : '';
+  fetch('{% url "save-answer" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-Email': USER_EMAIL,
+    },
+    body: JSON.stringify({
+      attempt_id: ATTEMPT_ID,
+      question_id: questionId,
+      selected_option: option,
+      marked_for_review: true,
+    }),
+  });
+}
+
+function updatePaletteStats() {
+  // Count attempted and marked questions
+  let attempted = 0, marked = 0;
+  document.querySelectorAll('input[type="radio"]:checked').forEach(() => attempted++);
+  // This is simplified; in production, track marked_for_review from backend
+  document.getElementById('attempted-count').textContent = attempted;
+  document.getElementById('unattempted-count').textContent = totalQuestions - attempted;
+  document.getElementById('progress').textContent = `${attempted} / ${totalQuestions}`;
+}
+
+// Initialize
+showQuestion(0);
+startTimer();
+</script>
+
+<style>
+.exam-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0b1120;
+  color: #e7edf8;
+}
+
+.exam-header {
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.exam-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exam-title {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.exam-timer {
+  display: flex;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.timer-value {
+  color: #22d3ee;
+}
+
+.exam-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  flex: 1;
+  overflow: hidden;
+}
+
+.question-palette {
+  background: rgba(16, 24, 40, 0.95);
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.palette-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.palette-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.palette-stats {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+}
+
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.palette-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.palette-btn:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: #38bdf8;
+}
+
+.exam-main {
+  padding: 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.question-number {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}
+
+.question-text {
+  font-size: 1.1rem;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.question-image {
+  margin: 16px 0;
+}
+
+.question-image img {
+  max-height: 300px;
+  border-radius: 12px;
+}
+
+.options-list {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.option-label {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.option-label:hover {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: #38bdf8;
+}
+
+.option-radio {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #22d3ee;
+}
+
+.option-text {
+  flex: 1;
+}
+
+.question-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.btn-action {
+  padding: 10px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-action:hover {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.exam-footer {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  margin-top: auto;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.btn-submit {
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #22d3ee, #818cf8);
+  color: #020617;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+}
+
+.tab-switch-warning {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 14px 18px;
+  background: rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  border-radius: 12px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+</style>
+{% endblock %}

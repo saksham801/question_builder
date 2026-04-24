@@ -1,0 +1,145 @@
+import io
+from decimal import Decimal
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+from reportlab.lib import colors
+
+
+def generate_attempt_pdf(attempt, questions_with_answers):
+    """
+    Generate a PDF report for a test attempt.
+    Returns PDF bytes.
+    """
+    pdf_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=A4,
+        rightMargin=0.75 * inch,
+        leftMargin=0.75 * inch,
+        topMargin=0.75 * inch,
+        bottomMargin=0.75 * inch,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#0b1120'),
+        alignment=TA_CENTER,
+        spaceAfter=12,
+    )
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#1a2331'),
+        spaceAfter=10,
+    )
+    body_style = ParagraphStyle(
+        'CustomBody',
+        parent=styles['BodyText'],
+        fontSize=10,
+        textColor=colors.HexColor('#334155'),
+    )
+
+    story = []
+
+    story.append(Paragraph('MockTest AI - Exam Report', title_style))
+    story.append(Spacer(1, 0.2 * inch))
+
+    summary_data = [
+        ['Student Email', attempt.user_email],
+        ['Test Name', attempt.test.title],
+        ['Date', attempt.start_time.strftime('%Y-%m-%d %H:%M:%S')],
+        ['Status', attempt.status.title()],
+    ]
+    summary_table = Table(summary_data, colWidths=[2 * inch, 3.5 * inch])
+    summary_table.setStyle(
+        TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f1f5f9')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1e293b')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e2e8f0')),
+        ])
+    )
+    story.append(summary_table)
+    story.append(Spacer(1, 0.3 * inch))
+
+    story.append(Paragraph('Score Summary', heading_style))
+    score_data = [
+        ['Total Score', f"{Decimal(attempt.score or 0):.2f}"],
+        ['Accuracy', f"{Decimal(attempt.accuracy_percentage or 0):.2f}%"],
+        ['Correct', str(attempt.correct_count)],
+        ['Incorrect', str(attempt.incorrect_count)],
+        ['Unattempted', str(attempt.unattempted_count)],
+        ['Time Taken', f"{attempt.time_taken_minutes} min"],
+        ['Tab Switches', str(attempt.tab_switch_count)],
+    ]
+    score_table = Table(score_data, colWidths=[2 * inch, 3.5 * inch])
+    score_table.setStyle(
+        TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#dbeafe')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1e293b')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e2e8f0')),
+        ])
+    )
+    story.append(score_table)
+    story.append(Spacer(1, 0.3 * inch))
+
+    story.append(Paragraph('Question-wise Analysis', heading_style))
+    story.append(Spacer(1, 0.1 * inch))
+
+    for idx, (question, answer) in enumerate(questions_with_answers, start=1):
+        q_text = str(question.text)[:100]
+        story.append(
+            Paragraph(
+                f"<b>Q{idx}:</b> {q_text}...",
+                body_style,
+            )
+        )
+
+        status = 'Unattempted'
+        if answer and answer.selected_option:
+            status = 'Correct' if answer.is_correct else 'Incorrect'
+
+        detail_data = [
+            ['Selected', answer.selected_option or '—'],
+            ['Correct Answer', question.answer_key],
+            ['Status', status],
+        ]
+        detail_table = Table(detail_data, colWidths=[1.5 * inch, 3.5 * inch])
+        detail_table.setStyle(
+            TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f1f5f9')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1e293b')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ])
+        )
+        story.append(detail_table)
+        story.append(Spacer(1, 0.15 * inch))
+
+    story.append(Spacer(1, 0.2 * inch))
+    story.append(
+        Paragraph(
+            '<i>Report generated by MockTest AI. For support, contact support@mocktest.ai</i>',
+            body_style,
+        )
+    )
+
+    doc.build(story)
+    pdf_buffer.seek(0)
+    return pdf_buffer.getvalue()

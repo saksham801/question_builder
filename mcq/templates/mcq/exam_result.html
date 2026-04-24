@@ -1,0 +1,309 @@
+{% extends 'mcq/base.html' %}
+
+{% block content %}
+<div class="result-container">
+  <div class="result-header">
+    <h1>Exam Results</h1>
+    <p>{{ attempt.test.title }}</p>
+  </div>
+
+  <div class="result-summary-cards">
+    <div class="result-card score-card">
+      <h3 class="score-value">{{ attempt.score|floatformat:2 }}</h3>
+      <p class="score-label">Total Score</p>
+    </div>
+    <div class="result-card accuracy-card">
+      <h3 class="score-value">{{ attempt.accuracy_percentage|floatformat:1 }}%</h3>
+      <p class="score-label">Accuracy</p>
+    </div>
+    <div class="result-card time-card">
+      <h3 class="score-value">{{ attempt.time_taken_minutes }}</h3>
+      <p class="score-label">Minutes Taken</p>
+    </div>
+    <div class="result-card tab-card">
+      <h3 class="score-value">{{ attempt.tab_switch_count }}</h3>
+      <p class="score-label">Tab Switches</p>
+    </div>
+  </div>
+
+  <div class="result-details">
+    <div class="detail-section">
+      <h2>Performance Summary</h2>
+      <div class="performance-grid">
+        <div class="perf-item">
+          <span class="perf-label">Correct</span>
+          <span class="perf-value correct">{{ attempt.correct_count }}</span>
+        </div>
+        <div class="perf-item">
+          <span class="perf-label">Incorrect</span>
+          <span class="perf-value incorrect">{{ attempt.incorrect_count }}</span>
+        </div>
+        <div class="perf-item">
+          <span class="perf-label">Unattempted</span>
+          <span class="perf-value unattempted">{{ attempt.unattempted_count }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h2>Question-wise Review</h2>
+      <div class="review-table panel">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Question Preview</th>
+              <th>Your Answer</th>
+              <th>Correct Answer</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in question_review %}
+            <tr class="review-row {% if item.is_correct %}correct-row{% elif item.selected != '—' %}incorrect-row{% else %}unattempted-row{% endif %}">
+              <td>{{ forloop.counter }}</td>
+              <td class="question-preview">{{ item.question.text|truncatechars:80 }}</td>
+              <td class="answer-cell">{{ item.selected }}</td>
+              <td class="answer-cell">{{ item.correct }}</td>
+              <td>
+                {% if item.is_correct %}
+                  <span class="badge success">✓ Correct</span>
+                {% elif item.selected == '—' %}
+                  <span class="badge neutral">○ Unattempted</span>
+                {% else %}
+                  <span class="badge error">✗ Wrong</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="result-actions">
+    {% if attempt.pdf_url %}
+    <a href="{{ attempt.pdf_url }}" class="btn btn-download" download>📥 Download Report PDF</a>
+    {% endif %}
+    {% if attempt.email_sent %}
+    <p class="success-msg">📧 Report sent to {{ attempt.user_email }}</p>
+    {% endif %}
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+  </div>
+</div>
+
+<style>
+.result-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.result-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 2.2rem;
+}
+
+.result-header p {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.result-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.result-card {
+  background: rgba(16, 24, 40, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 22px;
+  padding: 24px;
+  text-align: center;
+}
+
+.score-value {
+  margin: 0 0 8px 0;
+  font-size: 2.4rem;
+  color: #22d3ee;
+}
+
+.score-label {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.score-card .score-value {
+  color: #10b981;
+}
+
+.accuracy-card .score-value {
+  color: #f59e0b;
+}
+
+.time-card .score-value {
+  color: #8b5cf6;
+}
+
+.tab-card .score-value {
+  color: #ef4444;
+}
+
+.result-details {
+  display: grid;
+  gap: 24px;
+  margin: 32px 0;
+}
+
+.detail-section {
+  background: rgba(16, 24, 40, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 22px;
+  padding: 24px;
+}
+
+.detail-section h2 {
+  margin: 0 0 16px 0;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.perf-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.perf-label {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.perf-value {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.perf-value.correct {
+  color: #10b981;
+}
+
+.perf-value.incorrect {
+  color: #ef4444;
+}
+
+.perf-value.unattempted {
+  color: #6b7280;
+}
+
+.review-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.review-table th,
+.review-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.review-table th {
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.review-row.correct-row {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.review-row.incorrect-row {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.review-row.unattempted-row {
+  background: rgba(107, 114, 128, 0.08);
+}
+
+.question-preview {
+  max-width: 400px;
+  color: #cbd5e1;
+}
+
+.answer-cell {
+  font-weight: 500;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.badge.success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+.badge.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.badge.neutral {
+  background: rgba(107, 114, 128, 0.2);
+  color: #d1d5db;
+}
+
+.result-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 22px;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  text-decoration: none;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-download {
+  background: linear-gradient(135deg, #22d3ee, #818cf8);
+  color: #020617;
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.14);
+  color: #e2e8f0;
+}
+
+.success-msg {
+  color: #10b981;
+  font-weight: 500;
+  margin: 0;
+}
+</style>
+{% endblock %}

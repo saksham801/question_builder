@@ -96,3 +96,57 @@ class PDFUpload(models.Model):
 
     def __str__(self):
         return f'{self.file_name} ({self.status})'
+
+
+class Attempt(models.Model):
+    STATUS_CHOICES = [
+        ('in_progress', 'In Progress'),
+        ('submitted', 'Submitted'),
+        ('abandoned', 'Abandoned'),
+    ]
+
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='attempts')
+    user_email = models.EmailField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_progress')
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    tab_switch_count = models.PositiveIntegerField(default=0)
+    score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    total_questions = models.PositiveIntegerField(default=0)
+    correct_count = models.PositiveIntegerField(default=0)
+    incorrect_count = models.PositiveIntegerField(default=0)
+    unattempted_count = models.PositiveIntegerField(default=0)
+    accuracy_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    time_taken_minutes = models.PositiveIntegerField(default=0)
+    pdf_generated = models.BooleanField(default=False)
+    pdf_url = models.URLField(blank=True)
+    email_sent = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_time']
+        indexes = [
+            models.Index(fields=['user_email', '-start_time']),
+            models.Index(fields=['test', 'user_email']),
+        ]
+
+    def __str__(self):
+        return f'{self.user_email} - {self.test.title} ({self.status})'
+
+
+class Answer(models.Model):
+    attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='attempt_answers')
+    selected_option = models.CharField(max_length=1, blank=True)
+    is_correct = models.BooleanField(default=False)
+    marked_for_review = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('attempt', 'question')
+        ordering = ['question__id']
+
+    def __str__(self):
+        return f'{self.attempt} - Q{self.question.id}'
