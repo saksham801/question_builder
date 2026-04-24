@@ -15,6 +15,9 @@ from .tasks import process_pdf_upload_task
 def get_user_email(request):
     user_email = getattr(request, 'user_email', '')
     if not user_email:
+        if settings.DEBUG:
+            # In development, use a default email for testing
+            return 'test@example.com'
         raise PermissionDenied('Authentication required to perform this action.')
     return user_email
 

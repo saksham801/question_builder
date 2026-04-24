@@ -1,4 +1,5 @@
 import json
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase, override_settings
@@ -76,5 +77,9 @@ class SupabaseJWTMiddlewareTests(TestCase):
     def test_get_user_email_requires_authenticated_request(self):
         request = self.factory.get('/')
         request.user_email = ''
-        with self.assertRaises(PermissionDenied):
-            get_user_email(request)
+        # In DEBUG mode, should return default email
+        if settings.DEBUG:
+            self.assertEqual(get_user_email(request), 'test@example.com')
+        else:
+            with self.assertRaises(PermissionDenied):
+                get_user_email(request)
