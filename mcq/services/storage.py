@@ -29,7 +29,7 @@ def upload_pdf_file(file_obj, bucket=None):
     if status_code and status_code not in (200, 201, 204):
         raise RuntimeError(f'PDF upload failed: {getattr(response, "text", response)}')
     public = client.storage.from_(bucket_name).get_public_url(storage_key)
-    return storage_key, public.get('publicURL', '')
+    return storage_key, public
 
 
 def _upload_pdf_file_local(file_obj):
@@ -89,10 +89,14 @@ def upload_image_data(image_bytes, filename, bucket=None):
     if status_code and status_code not in (200, 201, 204):
         raise RuntimeError(f'Image upload failed: {getattr(response, "text", response)}')
     public = client.storage.from_(bucket_name).get_public_url(storage_key)
-    return public.get('publicURL', '')
+    return public
 
 
 def download_file(bucket, storage_key):
+    # In development mode without Supabase, try local storage first
+    if settings.DEBUG and (not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_KEY):
+        return _download_file_local(storage_key)
+
     client = get_supabase_client()
     response = client.storage.from_(bucket).download(storage_key)
     if hasattr(response, 'content'):
@@ -100,3 +104,13 @@ def download_file(bucket, storage_key):
     if isinstance(response, bytes):
         return response
     raise RuntimeError('Unable to download file from Supabase storage.')
+
+
+def _download_file_local(storage_key):
+    """Download file from local storage for development."""
+    from django.core.files.storage import default_storage
+    try:
+        with default_storage.open(storage_key, 'rb') as f:
+            return f.read()
+    except Exception as e:
+        raise RuntimeError(f'Unable to download file from local storage: {e}')
