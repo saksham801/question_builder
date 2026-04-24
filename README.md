@@ -79,9 +79,11 @@ OPENROUTER_MODEL=mistralai/mistral-7b-instruct
 RESEND_API_KEY=your-resend-key
 
 # Redis
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=rediss://:your-encoded-password@your-redis-host:6379/0
+# Note: URL-encode your Redis password if it contains special characters
+# Use Python: urllib.parse.quote('your-password', safe='')
 
-# Celery (optional)
+# Celery
 CELERY_TASK_ALWAYS_EAGER=False
 ```
 
