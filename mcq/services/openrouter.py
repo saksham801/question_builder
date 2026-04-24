@@ -5,7 +5,15 @@ from django.conf import settings
 import redis
 import requests
 
-redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+# Redis client will be created lazily
+_redis_client = None
+
+def get_redis_client():
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    return _redis_client
+
 RATE_LIMIT_KEY = 'openrouter:request_count'
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_REQUESTS = 18
@@ -16,9 +24,10 @@ def _get_cache_key(prompt: str) -> str:
 
 
 def _acquire_slot():
-    current = redis_client.incr(RATE_LIMIT_KEY)
+    client = get_redis_client()
+    current = client.incr(RATE_LIMIT_KEY)
     if current == 1:
-        redis_client.expire(RATE_LIMIT_KEY, RATE_LIMIT_WINDOW_SECONDS)
+        client.expire(RATE_LIMIT_KEY, RATE_LIMIT_WINDOW_SECONDS)
     if current > RATE_LIMIT_REQUESTS:
         sleep_for = 2
         time.sleep(sleep_for)
@@ -30,7 +39,8 @@ def call_openrouter(prompt: str, max_retries: int = 4) -> str:
     if not settings.OPENROUTER_API_KEY:
         raise RuntimeError('OPENROUTER_API_KEY is missing')
 
-    cached = redis_client.get(_get_cache_key(prompt))
+    client = get_redis_client()
+    cached = client.get(_get_cache_key(prompt))
     if cached:
         return cached
 
@@ -56,7 +66,8 @@ def call_openrouter(prompt: str, max_retries: int = 4) -> str:
         if response.status_code == 200:
             data = response.json()
             content = data['choices'][0]['message']['content']
-            redis_client.set(_get_cache_key(prompt), content, ex=86400)
+            client = get_redis_client()
+            client.set(_get_cache_key(prompt), content, ex=86400)
             return content
 
         if response.status_code == 429:
