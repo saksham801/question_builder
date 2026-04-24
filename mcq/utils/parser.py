@@ -5,7 +5,7 @@ import pdfplumber
 import pytesseract
 import fitz
 from django.conf import settings
-from .openrouter import call_openrouter
+from ..services.openrouter import call_openrouter
 from ..services.storage import upload_image_data
 
 

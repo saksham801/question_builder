@@ -1,6 +1,6 @@
 from decimal import Decimal
 from django.utils import timezone
-from .models import Attempt, Answer
+from ..models import Attempt, Answer
 
 
 def evaluate_attempt(attempt):

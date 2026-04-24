@@ -1,5 +1,5 @@
 from django.conf import settings
-from resend import Resend
+import resend
 from .storage import upload_image_data
 
 
@@ -17,7 +17,8 @@ def send_attempt_report_email(attempt, pdf_bytes):
     except Exception as exc:
         raise RuntimeError(f'Failed to upload PDF: {exc}')
 
-    client = Resend(api_key=settings.RESEND_API_KEY)
+    resend.api_key = settings.RESEND_API_KEY
+    client = resend.Emails()
     email_body = f"""
 <h2>Your Exam Report - {attempt.test.title}</h2>
 <p>Hi {attempt.user_email},</p>
@@ -32,7 +33,7 @@ def send_attempt_report_email(attempt, pdf_bytes):
 """
 
     try:
-        response = client.emails.send({
+        response = client.send({
             'from': 'MockTest AI <noreply@resend.dev>',
             'to': attempt.user_email,
             'subject': f'Exam Report: {attempt.test.title}',
