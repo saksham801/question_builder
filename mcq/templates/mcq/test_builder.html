@@ -1,0 +1,45 @@
+{% extends 'mcq/base.html' %}
+
+{% block content %}
+<div class="page-heading">
+  <h1>Test Builder</h1>
+  <p>Select saved questions to compose a new practice test.</p>
+</div>
+
+<form method="post" class="panel form-panel">
+  {% csrf_token %}
+  <div class="form-row">
+    {{ form.title.label_tag }}
+    {{ form.title }}
+    {{ form.title.errors }}
+  </div>
+  <div class="form-row">
+    {{ form.description.label_tag }}
+    {{ form.description }}
+    {{ form.description.errors }}
+  </div>
+  <div class="form-row grid-two">
+    <div>
+      {{ form.duration_minutes.label_tag }}
+      {{ form.duration_minutes }}
+      {{ form.duration_minutes.errors }}
+    </div>
+    <div>
+      {{ form.total_marks.label_tag }}
+      {{ form.total_marks }}
+      {{ form.total_marks.errors }}
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Select Questions</h2>
+    {% if questions %}
+      <div class="question-list">
+        {{ form.question_ids }}
+      </div>
+    {% else %}
+      <div class="alert alert-info">No saved questions available. Save parsed questions first.</div>
+    {% endif %}
+  </div>
+  <button type="submit" class="button button-primary">Create Test</button>
+</form>
+{% endblock %}

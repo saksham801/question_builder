@@ -1,0 +1,41 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MockTest AI</title>
+  <link rel="stylesheet" href="{% static 'mcq/css/styles.css' %}" />
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <a href="{% url 'dashboard' %}">MockTest AI</a>
+      </div>
+      <nav>
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <a href="{% url 'pdf-upload-create' %}">Upload PDF</a>
+        <a href="{% url 'question-list' %}">Questions</a>
+        <a href="{% url 'test-create' %}">Test Builder</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      {% if messages %}
+        <div class="flash-grid">
+          {% for message in messages %}
+            <div class="flash {{ message.tags }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      <span>Built for structured PDF → MCQ workflows with Supabase, OpenRouter, Celery, and Redis.</span>
+    </footer>
+  </div>
+</body>
+</html>

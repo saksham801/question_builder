@@ -1,0 +1,28 @@
+{% extends 'mcq/base.html' %}
+
+{% block content %}
+<div class="page-heading">
+  <h1>Upload PDF</h1>
+  <p>Upload your question bank PDF and the system will extract subject/topic-based MCQs in the background.</p>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="panel form-panel">
+  {% csrf_token %}
+  <div class="form-row">
+    {{ form.subject.label_tag }}
+    {{ form.subject }}
+    {{ form.subject.errors }}
+  </div>
+  <div class="form-row">
+    {{ form.topic.label_tag }}
+    {{ form.topic }}
+    {{ form.topic.errors }}
+  </div>
+  <div class="form-row">
+    {{ form.pdf_file.label_tag }}
+    {{ form.pdf_file }}
+    {{ form.pdf_file.errors }}
+  </div>
+  <button type="submit" class="button button-primary">Upload and Process</button>
+</form>
+{% endblock %}

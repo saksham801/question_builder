@@ -1,0 +1,115 @@
+{% extends 'mcq/base.html' %}
+
+{% block content %}
+<div class="page-heading">
+  <h1>Upload Preview</h1>
+  <p>Review parsed questions before saving them to your Supabase database.</p>
+</div>
+
+<div class="panel status-panel">
+  <h2>{{ upload.file_name }}</h2>
+  <p><strong>Status:</strong> {{ upload.status|title }}</p>
+  <p><strong>Subject:</strong> {{ upload.subject }} | <strong>Topic:</strong> {{ upload.topic }}</p>
+  {% if upload.error_message %}
+    <div class="alert alert-warning">{{ upload.error_message }}</div>
+  {% endif %}
+  {% if upload.status != 'ready' %}
+    <div class="alert alert-info">Processing is still underway. Refresh this page after a few minutes.</div>
+  {% endif %}
+</div>
+
+{% if upload.status == 'ready' and upload.parsed_json %}
+<form id="save-form" method="post" action="{% url 'save-parsed-questions' upload.pk %}">
+  {% csrf_token %}
+  {{ form.parsed_json }}
+  <div class="panel">
+    <div class="table-toolbar">
+      <button type="button" class="button button-secondary" id="refresh-preview">Render LaTeX Preview</button>
+      <button type="submit" class="button button-primary">Save Questions</button>
+    </div>
+    <div class="table-scroll">
+      <table class="content-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Question</th>
+            <th>Options</th>
+            <th>Answer</th>
+            <th>Image</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in upload.parsed_json %}
+          <tr class="question-row" data-page="{{ item.page_number }}" data-image-url="{{ item.image_url }}">
+            <td>{{ forloop.counter }}</td>
+            <td>
+              <textarea class="field-question question-text">{{ item.question }}</textarea>
+              <div class="latex-preview">\( {{ item.question|escapejs }} \)</div>
+            </td>
+            <td class="options-grid">
+              {% for label in 'ABCD' %}
+              <div class="option-block">
+                <label>{{ label }}</label>
+                <input class="field-option option-{{ label }}" value="{{ item.options[label] }}" />
+              </div>
+              {% endfor %}
+            </td>
+            <td>
+              <select class="field-answer">
+                {% for letter in 'ABCD' %}
+                <option value="{{ letter }}" {% if item.answer == letter %}selected{% endif %}>{{ letter }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              {% if item.image_url %}
+                <img src="{{ item.image_url }}" alt="diagram" class="preview-image" />
+              {% else %}
+                <span class="muted">No image</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+{% endif %}
+
+<script>
+function buildPayload() {
+  const rows = document.querySelectorAll('.question-row');
+  return Array.from(rows).map(row => {
+    const questionText = row.querySelector('.question-text').value.trim();
+    return {
+      question: questionText,
+      options: {
+        A: row.querySelector('.option-A').value.trim(),
+        B: row.querySelector('.option-B').value.trim(),
+        C: row.querySelector('.option-C').value.trim(),
+        D: row.querySelector('.option-D').value.trim(),
+      },
+      answer: row.querySelector('.field-answer').value,
+      page_number: Number(row.dataset.page || null),
+      image_url: row.dataset.imageUrl || '',
+    };
+  });
+}
+
+document.getElementById('save-form')?.addEventListener('submit', function(event) {
+  document.querySelector('input[name="parsed_json"]').value = JSON.stringify(buildPayload());
+});
+
+document.getElementById('refresh-preview')?.addEventListener('click', function() {
+  const previewBlocks = document.querySelectorAll('.latex-preview');
+  previewBlocks.forEach(block => {
+    const question = block.previousElementSibling.value || '';
+    block.textContent = '\\(' + question + '\\)';
+  });
+  if (window.MathJax) {
+    window.MathJax.typesetPromise();
+  }
+});
+</script>
+{% endblock %}

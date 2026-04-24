@@ -1,0 +1,41 @@
+{% extends 'mcq/base.html' %}
+
+{% block content %}
+<div class="page-heading">
+  <h1>Dashboard</h1>
+  <p>Upload PDFs, review parsed question batches, edit before saving, and build tests.</p>
+</div>
+
+<div class="grid cards-grid">
+  <article class="card">
+    <h2>Recent Uploads</h2>
+    <ul class="summary-list">
+      {% for upload in uploads %}
+        <li><a href="{% url 'pdf-upload-detail' upload.pk %}">{{ upload.file_name }}</a> — {{ upload.status|title }}</li>
+      {% empty %}
+        <li>No uploads yet.</li>
+      {% endfor %}
+    </ul>
+  </article>
+  <article class="card">
+    <h2>Saved Questions</h2>
+    <ul class="summary-list">
+      {% for question in questions %}
+        <li>{{ question.topic.subject.name }} / {{ question.topic.name }} — Q{{ question.pk }}</li>
+      {% empty %}
+        <li>No saved questions yet.</li>
+      {% endfor %}
+    </ul>
+  </article>
+  <article class="card">
+    <h2>Recent Tests</h2>
+    <ul class="summary-list">
+      {% for test in tests %}
+        <li>{{ test.title }} — {{ test.questions.count }} questions</li>
+      {% empty %}
+        <li>No tests created yet.</li>
+      {% endfor %}
+    </ul>
+  </article>
+</div>
+{% endblock %}

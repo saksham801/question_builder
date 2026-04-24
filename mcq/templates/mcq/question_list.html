@@ -1,0 +1,37 @@
+{% extends 'mcq/base.html' %}
+
+{% block content %}
+<div class="page-heading">
+  <h1>Saved Questions</h1>
+  <p>Browse questions stored in the database with subject/topic classification.</p>
+</div>
+
+<div class="panel table-scroll">
+  <table class="content-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Subject</th>
+        <th>Topic</th>
+        <th>Question</th>
+        <th>Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for question in questions %}
+      <tr>
+        <td>{{ question.id }}</td>
+        <td>{{ question.topic.subject.name }}</td>
+        <td>{{ question.topic.name }}</td>
+        <td>{{ question.text|truncatechars:120 }}</td>
+        <td>{{ question.answer_key }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5">No questions saved yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
